@@ -51,6 +51,8 @@ src/mulmod.cxx     -- C interface with GCC function multiversioning to the modul
 src/ranluxpp.cxx   -- generator itself using modular multiplication.
 src/ranlux.cxx     -- optimized version of the conventional RANLUX algorithm.
 src/skipstates.asm -- asm optimization for hardware carry bit propagation in the conventional RANLUX algorithm.
+src/divmult.asm    -- fractional expansion of LCG state x divided by the modulus m to get RANLUX sequence.
+src/lcg2ranlux.cxx -- transform LCG state to RANLUX sequence.
 
 tests/ranluxpp_test.cxx   -- usage example and benchmarks of the generator with modular multiplication.
 tests/ranlux_test.cxx     -- usage example and benchmarks of the generators based on the conventional RANLUX algorithm.

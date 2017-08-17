@@ -26,6 +26,7 @@
 
 #include <stdint.h>
 #include "immintrin.h"
+#include "ranluxpp.h"
 
 #pragma once
 
@@ -89,7 +90,8 @@ public:
 };
 #endif
 
-// For testing purpose, full emulation of the the original FORTRAN routine
+// For testing purpose, full emulation of the original FORTRAN routine
+// using the optimized subtract-with-borrow algorithm
 // to compare it with the code:
 // http://www.cpc.cs.qub.ac.uk/summaries/ACPR_v1_0.html or
 // http://www.cpc.cs.qub.ac.uk/summaries/ACPR_v2_0.html
@@ -109,6 +111,35 @@ protected:
 public:
   ranluxI_James():ranluxI_James(0){}
   ranluxI_James(unsigned int seed, int luxury = 3);
+  void ranlux(float*, int n);
+  void rluxgo(int luxury, int seed, int k1, int k2);
+  void rluxin(int*);
+  void rluxut(int*);
+  void rluxat(int &lout, int &inout, int &k1, int &k2);
+};
+
+// For testing purpose, full emulation of the original FORTRAN routine
+// using LCG as a skipping engine
+// to compare it with the code:
+// http://www.cpc.cs.qub.ac.uk/summaries/ACPR_v1_0.html or
+// http://www.cpc.cs.qub.ac.uk/summaries/ACPR_v2_0.html
+class ranluxpp_James: public ranluxpp{
+protected:
+  uint32_t _y[24]; // unpacked RANLUX sequence
+  uint32_t _c;// unpacked carry
+  int _nskip; // how many numbers generate and skip
+  int _luxury; // luxury level
+  int _i;      // current position in state vector
+  int _seed;   // the seed number used to initialize the generator
+  uint64_t _kount; // total generated numbers
+
+  float tofloat(int);
+  int nextpos(); // next position in the state vector
+  void skip(); // skip nskip numbers
+  void setlux(int luxury);
+public:
+  ranluxpp_James():ranluxpp_James(0){}
+  ranluxpp_James(unsigned int seed, int luxury = 3);
   void ranlux(float*, int n);
   void rluxgo(int luxury, int seed, int k1, int k2);
   void rluxin(int*);

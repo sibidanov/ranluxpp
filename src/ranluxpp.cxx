@@ -167,3 +167,17 @@ void ranluxpp::init(uint64_t seed){
   powmod(a, seed); // skip 2^96*seed states
   mul9x9mod(_x, a);
 }
+
+// jump ahead by n 24-bit RANLUX numbers
+void ranluxpp::jump(uint64_t n){
+  uint64_t a[9];
+  for(int i=0;i<9;i++) a[i] = geta()[i];
+  powmod(a, n);
+  mul9x9mod(_x, a);
+}
+
+// set skip factor to emulate RANLUX behaviour
+void ranluxpp::setskip(uint64_t n){
+  for(int i=0;i<9;i++) _A[i] = geta()[i];
+  powmod(_A, n);
+}

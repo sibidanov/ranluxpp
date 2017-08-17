@@ -104,4 +104,18 @@ public:
   // Fill array size of n by double precision random numbers uniformly
   // distributed in [0,1).
   void getarray(int n, double *a);
+
+  // jump ahead by n 24-bit RANLUX numbers
+  void jump(uint64_t n);
+
+  // set skip factor to emulate RANLUX behaviour
+  void setskip(uint64_t n);
 };
+
+// transform the LCG state to a corresponding subtract-with-borrow sequence
+// or RANLUX sequence
+// returns carry
+bool getranluxseq(uint32_t y[24], const uint64_t x[9]);
+
+// transform the RANLUX sequence (24 24-bit numbers) and the carry to the LCG state
+void getlcgstate(uint64_t x[9], const uint32_t y[24], bool k);

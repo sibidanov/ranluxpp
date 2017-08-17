@@ -17,7 +17,7 @@ all: ranluxpp_test ranlux_test std_random_test
 %.o: %.cxx
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-$(RLIB): src/ranluxpp.o src/mulmod.o src/mul9x9mod.o src/ranlux.o src/cpuarch.o $(ASMOBJ)
+$(RLIB): src/ranluxpp.o src/mulmod.o src/mul9x9mod.o src/divmult.o src/lcg2ranlux.o src/ranlux.o src/cpuarch.o $(ASMOBJ)
 	ar cru $@ $^
 
 ranlux_test: tests/ranlux_test.cxx $(RLIB)

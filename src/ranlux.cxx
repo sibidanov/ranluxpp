@@ -291,3 +291,119 @@ void ranluxI_James::rluxat(int &lout, int &inout, int &k1, int &k2){
   k2    = _kount/(1000*1000*1000);
 }
 
+ranluxpp_James::ranluxpp_James(unsigned int seed, int lux):ranluxpp(0,1){
+  rluxgo(lux, seed, 0, 0);
+}
+
+void ranluxpp_James::skip(){
+  nextstate();
+  _c = getranluxseq(_y, _x);
+}
+
+float ranluxpp_James::tofloat(int i){
+  int x = _y[i];
+  if(unlikely(x < (1<<12))){
+    int j = (i<14)?i+10:i-14;
+    x = (x<<12) + (_y[j]>>12);
+    if(unlikely(!x)) return (1.0f/0x1p48f);
+    return x * (1.0f/0x1p36f);
+  }
+  return x * (1.0f/0x1p24f);
+}
+
+int ranluxpp_James::nextpos(){
+  if(unlikely(_i <= 0)){ _i = 24; skip();}
+  return --_i;
+}
+
+void ranluxpp_James::ranlux(float *v, int n) {
+  for(int i=0;i<n;i++) v[i] = tofloat(nextpos());
+  _kount += n;
+}
+
+void ranluxpp_James::setlux(int lux){
+  // number of additional random numbers that need to be 'thrown away'
+  // every 24 numbers is set using _luxury level variable.
+  const int lux_levels[5] = {0,24,73,199,365};
+  if(lux<0){
+    _luxury = 3;
+  } else if(lux<=4){
+    _luxury = lux;
+  } else if(lux<24 || lux>2000){
+    _luxury = 4;
+  } else {
+    _luxury = lux;
+    for(int i=0;i<4;i++) if(lux==lux_levels[i]) _luxury = i;
+  }
+  if(_luxury<=4){
+    _nskip = lux_levels[_luxury];
+    printf(" RANLUX LUXURY LEVEL SET BY RLUXGO :%2d     P=%4d\n",_luxury,_nskip+24);
+  } else {
+    _nskip = _luxury - 24;
+    printf(" RANLUX P-VALUE SET BY RLUXGO :%5d\n",_luxury);
+  }
+  setskip(_nskip+24);
+}
+
+void ranluxpp_James::rluxgo(int lux, int seed, int k1, int k2) {
+  setlux(lux);
+  if(seed<0)
+    printf(" Illegal initialization by RLUXGO, negative input seed\n");
+  if(seed>0){
+    _seed = seed;
+    printf(" RANLUX INITIALIZED BY RLUXGO FROM SEEDS%12d%12d%12d\n",_seed,k1,k2);
+  } else {
+    _seed = 314159265;
+    printf(" RANLUX INITIALIZED BY RLUXGO FROM DEFAULT SEED\n");
+  }
+
+  LEcuyer ns(_seed);
+  for(int i = 0; i < 24; i++) _y[i] = ns() & 0xffffff;
+  _c = !_y[23];
+  getlcgstate(_x, _y, _c);
+
+  jump(24);
+  _c = getranluxseq(_y, _x);
+
+  _i = 0;
+
+  _kount = k1 + k2*(1000*1000*1000);
+  uint64_t nstates = (_kount + 24 - _i)/24;
+  _i += nstates*24 - _kount;
+  if(_kount) jump(_kount);
+}
+
+void ranluxpp_James::rluxin(int state[25]){
+  printf("FULL INITIALIZATION OF RANLUX WITH 25 INTEGERS:\n");
+  for(int i=0;i<25;i++) {
+    printf("%12d", state[i]); if(!((i+1)%5)) printf("\n");
+  }
+  for(int i=0;i<24;i++) _y[i] = state[i];
+  int isd = state[24];
+  _c = isd<0;
+
+  getlcgstate(_x, _y, _c);
+
+  isd = abs(isd);
+
+  _i = isd%100;
+  isd /= 100;
+  isd /= 100;
+  isd /= 100;
+  setlux(isd);
+  _seed = -1;
+}
+
+void ranluxpp_James::rluxut(int state[25]){
+  // Entry to ouput seeds as integers
+  bool c = getranluxseq((uint32_t*)state, _x);
+  state[24] = _i + 100*100*100*_luxury;
+  if(c) state[24] = -state[24];
+}
+
+void ranluxpp_James::rluxat(int &lout, int &inout, int &k1, int &k2){
+  lout  = _luxury;
+  inout = _seed;
+  k1    = _kount%(1000*1000*1000);
+  k2    = _kount/(1000*1000*1000);
+}

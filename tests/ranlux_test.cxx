@@ -70,9 +70,10 @@ void test_sameseed(){
 // compare results with the original FORTRAN code:
 // http://www.cpc.cs.qub.ac.uk/summaries/ACPR_v1_0.html or
 // http://www.cpc.cs.qub.ac.uk/summaries/ACPR_v2_0.html
-void original_test_ranluxI_James(){
+template<class ranlux_imp>
+void original_test(){
   float rvec[1000];
-  ranluxI_James a;
+  ranlux_imp a;
 
   auto print = [&](const char *title, const char *luxury){
     printf("  %s\n",title);
@@ -129,6 +130,8 @@ void usage(int argc, char **argv){
   printf("         5 -- skip 10^9 states or 4*24*10^9 numbers with the SSE2 skipping\n");
   printf("         6 -- skip 10^9 states or 8*24*10^9 numbers with the AVX2 skipping\n");
   printf("         7 -- same seed for SIMD generators (consistency check)\n");
+  printf("         8 -- perform self consistency test using LCG as a skipping engine\n");
+  printf("              (random numbers are the same as in the original FORTRAN code)\n");
 }
 
 int main(int argc, char **argv){
@@ -136,7 +139,7 @@ int main(int argc, char **argv){
 
   int ntest = atoi(argv[1]);
   if ( ntest == 0 ){
-    original_test_ranluxI_James();
+    original_test<ranluxI_James>();
   } else if(ntest == 1){
     speedtest<ranluxI_scalar>();
   } else if(ntest == 2){
@@ -155,6 +158,8 @@ int main(int argc, char **argv){
 #endif
   } else if(ntest == 7){
     test_sameseed();
+  } else if(ntest == 8){
+    original_test<ranluxpp_James>();
   } else {
     usage(argc,argv);
   }

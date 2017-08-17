@@ -54,57 +54,57 @@ void speedtest_array(){
   printf("sum=%lf\n", (double)(sum));
 }
 
-// propagate carry bit through 9*64 bit number
-void add_carry(uint64_t *va, uint64_t k){
-  int i = 0;
-  do{
-    va[i] += k;
-    k = (va[i] < k);
-  } while(k && ++i<9);
-}
-
-// subtract two 9*64 bit numbers
-// d = a - b
-void sub(uint64_t *vd, const uint64_t *va, const uint64_t *vb){
-  uint64_t k = 0; // carry bit
-  for (int i = 0; i < 9; i++){
-    uint64_t a = va[i], b = vb[i];
-    b += k;
-    k = (b < k) | (a < b);
-    vd[i] = a - b;
-  }
-}
-
-// insert 24 bit number at certain position
-// x   LCG state
-// pos position to insert from beginning of the array
-// y   24 bit number to insert
-void pack24(uint64_t *x, int pos, uint32_t y){
-  int n = pos >> 6, l = pos & 0x3f;
-  x[n] |= (uint64_t)y<<l;
-  if(64<24+l) x[n+1] |= y>>(64-l);
-}
-
-// pack the sequence of the RANLUX generator into the LCG state according to Eq. 3
-// x LCG state
-// y RANLUX generator sequence
-// k carry bit
-void pack(uint64_t *x, const uint32_t *y, uint64_t k){
-  for(int i=0;i<9;i++) x[i] = 0;
-  for(int i=0;i<24;i++) pack24(x, i*24, y[23-i]);
-  uint64_t b[9] = {0,0,0,0,0,0,0,0,0};
-  for(int i=0;i<10;i++) pack24(b, i*24, y[9-i]);
-  sub(x,x,b);
-  add_carry(x,k);  
-}
-
 // print 9*64 bit number
 void print(uint64_t *x){
   // for(int i=0;i<9;i++) printf("%016lx",x[8-i]); printf("\n");
   printf("%016lx%016lx ... %016lx%016lx\n",x[8],x[7],x[1],x[0]);
 }
 
-void compare_ranlux(){
+// print 24*24 bit number
+void print(uint32_t *x, bool k){
+  // for(int i=0;i<24;i++) printf("%06x ",x[23-i]); printf("k=%d\n",k);
+  printf("%06x %06x %06x ... %06x %06x %06x k=%d\n",x[23],x[22],x[21],x[2],x[1],x[0],k);
+}
+
+void compare_ranlux_1(){
+  int stride = 17;
+  ranluxI_scalar g0(100, stride);
+  int p = 24*stride;
+  ranluxpp g1(0, p);
+  printf("Multiplier A = a^%d = ",p); print(g1.getmultiplier());
+
+  uint32_t y[24], k, y2[24], k2;
+  g0.getstate(y, k);
+  uint64_t x[9];
+  getlcgstate(x, y, k);
+  for(int i=0;i<9;i++) g1.getstate()[i] = x[i];
+
+  int i0 = 1, N = 1;
+  do {
+    g0.nextstate(stride);
+    g0.getstate(y, k);
+    g1.nextstate();
+    k2 = getranluxseq(y2, g1.getstate());
+    if(k != k2){
+      printf("Test failed at step %d. RANLUX carry bit = %d, LCG carry bit = %d\n",N,k,k2);
+      return;
+    }
+    for(int j=0;j<24;j++)
+      if(y[j] != y2[j]){
+	printf("Test failed at step %d. RANLUX number y[%d]=0x%x, LCG number y[%d]=0x%x\n",N,j,y[j],j,y2[j]);
+	return;
+      }
+    if(i0==N){
+      i0 <<= 1;
+      printf("RANLUX: y_%d = ",N); print(y,k);
+      printf("   LCG: y_%d = ",N); print(y2,k2);
+    }
+  } while(++N<1000*1000*100);
+  printf("Test successfully passed.\n");
+  printf("The transformed LCG state and the RANLUX sequence is identical for %d steps.\n",N);
+}
+
+void compare_ranlux_0(){
   int stride = 17;
   ranluxI_scalar g0(100, stride);
   int p = 24*stride;
@@ -114,30 +114,33 @@ void compare_ranlux(){
   uint32_t y[24], k;
   g0.getstate(y, k);
   uint64_t x[9];
-  pack(x, y, k);
-  printf("SKIPPING: x_%d = ",0); print(x);
+  getlcgstate(x, y, k);
+  printf("RANLUX: x_%d = ",0); print(x);
   for(int i=0;i<9;i++) g1.getstate()[i] = x[i];
-  printf("     LCG: x_%d = ",0); print(g1.getstate());
+  printf("   LCG: x_%d = ",0); print(g1.getstate());
 
-  int i0 = 0, i1 = 0;
-  int N = 1;
+  int i0 = 1, N = 1;
   do {
-    for(;i0<N;i0++) g0.nextstate(stride);
-    g0.getstate(y,k); pack(x, y, k);
-    printf("SKIPPING: x_%d = ",N); print(x);
-    
-    for(;i1<N;i1++) g1.nextstate();
-    printf("     LCG: x_%d = ",N); print(g1.getstate());
+    g0.nextstate(stride);
+    g0.getstate(y,k); getlcgstate(x, y, k);
+    g1.nextstate();
 
     uint64_t *z = g1.getstate();
     for(int j=0;j<9;j++)
       if(x[j] != z[j]){
 	printf("Test failed at step %d.\n",N);
+	printf("RANLUX: x_%d = ",0); print(x);
+	printf("   LCG: x_%d = ",0); print(g1.getstate());
 	return;
       }
-  } while((N<<=3)<1000*1000*1000);
+    if(i0==N){
+      i0 <<= 1;
+      printf("RANLUX: y_%d = ",N); print(x);
+      printf("   LCG: y_%d = ",N); print(z);
+    }
+  } while(++N<1000*1000*100);
   printf("Test successfully passed.\n");
-  printf("The sequence obtained by the RANLUX algorithm is identical to one obtained by the modular multiplication in %d steps.\n",i0);
+  printf("The transformed LCG state and the RANLUX sequence is identical for %d steps.\n",N);
 }
 
 void usage(int argc, char **argv){
@@ -151,11 +154,13 @@ void usage(int argc, char **argv){
   printf("Generator parameters are derived from the RANLUX program.\n\n");
   printf("Usage: %s ntest\n",argv[0]);
   printf("  ntest: 0 -- perform self consistency test\n");
-  printf("              (comparing sequencies with the RANLUX generator)\n");
-  printf("         1 -- sum of 10^9 float random numbers\n");
-  printf("         2 -- sum of 10^9 double random numbers\n");
-  printf("         3 -- sum of 10^9 float random numbers (array)\n");
-  printf("         4 -- sum of 10^9 double random numbers (array)\n");
+  printf("              (the RANLUX generator sequence is transformed to LCG state and compared)\n");
+  printf("         1 -- perform self consistency test\n");
+  printf("              (the LCG state is transformed to RANLUX generator sequence and compared)\n");
+  printf("         2 -- sum of 10^9 float random numbers\n");
+  printf("         3 -- sum of 10^9 double random numbers\n");
+  printf("         4 -- sum of 10^9 float random numbers (array)\n");
+  printf("         5 -- sum of 10^9 double random numbers (array)\n");
 }
 
 int main(int argc, char **argv){
@@ -164,14 +169,16 @@ int main(int argc, char **argv){
   int ntest = atoi(argv[1]);
   printf("Selected code path is optimized for the %s CPU architecture.\n",getarch());
   if ( ntest == 0 ){
-    compare_ranlux();
+    compare_ranlux_0();
   } else if(ntest == 1){
-    speedtest<float>();
+    compare_ranlux_1();
   } else if(ntest == 2){
-    speedtest<double>();
+    speedtest<float>();
   } else if(ntest == 3){
-    speedtest_array<float>();
+    speedtest<double>();
   } else if(ntest == 4){
+    speedtest_array<float>();
+  } else if(ntest == 5){
     speedtest_array<double>();
   } else {
     usage(argc,argv);
